@@ -11,7 +11,7 @@ st.title("📊 Visualização de Taxa Rede - Pix Maio / Faturamento Junho 2025")
 st.subheader("📂 Envie os arquivos necessários")
 
 uploaded_dim = st.file_uploader("1️⃣ Base de Centros de Custo (.xlsx)", type=["xlsx"], key="dim")
-uploaded_dados = st.file_uploader("2️⃣ Pix Maio - Fat Junho (.xlsx)", type=["xlsx"], key="dados")
+uploaded_dados = st.file_uploader("2️⃣  Relatorio REDE (.xlsx)", type=["xlsx"], key="dados")
 
 if uploaded_dim and uploaded_dados:
     # Leitura dos arquivos
