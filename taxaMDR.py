@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Relatório de Taxa Rede", layout="wide")
-st.title("📊 Visualização de Taxa Rede - Pix Maio / Faturamento Junho 2025")
+st.title("📊 Visualização de Taxa Rede - Pix ")
 
 # Upload dos arquivos
 st.subheader("📂 Envie os arquivos necessários")
