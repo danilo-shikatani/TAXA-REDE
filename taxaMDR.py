@@ -51,13 +51,22 @@ if uploaded_dim and uploaded_dados:
 
     df_merged = df_merged[colunas_ordenadas]
 
-    # Exibir resultado
+     # Exibir resultado
     st.subheader("📋 Resultado Final")
     st.dataframe(df_merged, use_container_width=True)
 
     # Totais
     total_taxa = df_merged['taxa'].sum()
     st.metric("💰 Total Geral de Taxas", f"R$ {total_taxa:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ','))
+
+    # Botão para download em CSV
+    csv = df_merged.to_csv(index=False, sep=';', encoding='utf-8-sig')
+    st.download_button(
+        label="⬇️ Baixar CSV",
+        data=csv,
+        file_name='taxa_rede.csv',
+        mime='text/csv'
+    )
 
 else:
     st.info("⚠️ Envie os dois arquivos acima para processar os dados.")
