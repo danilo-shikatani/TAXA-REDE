@@ -115,7 +115,7 @@ if uploaded_dim and uploaded_dados:
         df_para_xml = df_merged.copy()
         df_para_xml.columns = [re.sub(r'[^a-zA-Z0-9_]', '_', col) for col in df_para_xml.columns]
         xml_string = df_para_xml.to_xml(
-            index=False, root_name='PedidosDeCompra', row_name='Pedido', encoding='utf-8'
+            index=False, root_name='PedidoCompras', row_name='Pedido', encoding='utf-8'
         )
         st.download_button("Baixar XML de Pedidos", xml_string, 'pedidos_de_compra.xml', 'application/xml')
 
