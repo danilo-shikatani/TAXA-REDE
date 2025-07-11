@@ -5,6 +5,31 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
+# --- NOVA FUNÇÃO DE LIMPEZA INTELIGENTE ---
+def limpar_e_converter_valor(valor):
+    """
+    Converte um valor para float de forma segura, lidando com números
+    que já são numéricos ou textos formatados no padrão brasileiro.
+    """
+    # Se já for um número (int ou float), retorna ele mesmo.
+    if isinstance(valor, (int, float)):
+        return valor
+    
+    # Se for um texto, tenta limpar e converter.
+    if isinstance(valor, str):
+        try:
+            # Remove pontos de milhar, depois troca a vírgula decimal por ponto
+            valor_limpo = valor.replace('.', '').replace(',', '.')
+            return float(valor_limpo)
+        except (ValueError, TypeError):
+            # Se a conversão falhar, retorna 0
+            return 0.0
+            
+    # Se não for nem número nem texto, retorna 0
+    return 0.0
+# --- FIM DA FUNÇÃO ---
+
+
 st.set_page_config(page_title="Relatório de Taxa Rede", layout="wide")
 st.title("📊 Visualização de Taxa Rede - Pix ")
 
@@ -12,15 +37,9 @@ st.title("📊 Visualização de Taxa Rede - Pix ")
 st.subheader("📝 Parâmetros da Saída")
 col1, col2 = st.columns(2)
 with col1:
-    previsao_entrega_input = st.date_input(
-        "1️⃣ Selecione a Previsão de Entrega",
-        value=datetime.today()
-    )
+    previsao_entrega_input = st.date_input("1️⃣ Selecione a Previsão de Entrega", value=datetime.today())
 with col2:
-    obs_input = st.text_input(
-        "2️⃣ Digite a Observação para o arquivo final",
-        value="Taxas Rede PIX referente ao período"
-    )
+    obs_input = st.text_input("2️⃣ Digite a Observação para o arquivo final", value="Taxas Rede PIX referente ao período")
 
 # --- UPLOAD DOS ARQUIVOS ---
 st.subheader("📂 Envie os arquivos necessários")
@@ -32,20 +51,22 @@ with col2_upload:
 
 
 if uploaded_dim and uploaded_dados:
-    # --- LEITURA E PROCESSAMENTO (sem alterações aqui) ---
     dim_centro = pd.read_excel(uploaded_dim)
     dfato_rede = pd.read_excel(uploaded_dados)
 
     dfato_rede.columns = dfato_rede.iloc[0]
     dfato_rede = dfato_rede[1:].reset_index(drop=True)
 
+    # --- CORREÇÃO PRINCIPAL APLICADA AQUI ---
+    # Usamos a nova função inteligente para limpar e converter a coluna 'taxa'
     if 'taxa' in dfato_rede.columns:
-        dfato_rede['taxa'] = dfato_rede['taxa'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-        dfato_rede['taxa'] = pd.to_numeric(dfato_rede['taxa'], errors='coerce').fillna(0)
+        dfato_rede['taxa'] = dfato_rede['taxa'].apply(limpar_e_converter_valor)
+    # --- FIM DA CORREÇÃO ---
 
     df_merged = dfato_rede.merge(dim_centro, on='CNPJ', how='left')
     df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'taxa': 'sum'}).reset_index()
 
+    # Adicionar colunas fixas e as variáveis dos novos campos
     df_merged['TipoCompra'] = '04'
     df_merged['Agregador'] = '001'
     df_merged['CNPJFornecedor'] = '33264655000126'
@@ -66,38 +87,18 @@ if uploaded_dim and uploaded_dados:
     ]
     df_merged = df_merged[colunas_ordenadas]
 
-
-    # --- EXIBIÇÃO E DOWNLOAD (COM FORMATAÇÃO CORRIGIDA) ---
+    # --- EXIBIÇÃO E DOWNLOAD (com formatação brasileira) ---
     st.subheader("📋 Resultado Final")
-
-    # Cria uma cópia do dataframe para formatar apenas para exibição
     df_para_exibicao = df_merged.copy()
-
-    # <<< CORREÇÃO 1: FORMATANDO A COLUNA 'taxa' PARA O PADRÃO BRASILEIRO >>>
-    # Aplicamos a formatação em cada valor da coluna 'taxa'
-    df_para_exibicao['taxa'] = df_para_exibicao['taxa'].apply(
-        lambda x: f"{x:_.2f}".replace('.', ',').replace('_', '.')
-    )
-    
-    # Exibe o dataframe com os valores já formatados como texto
+    df_para_exibicao['taxa'] = df_para_exibicao['taxa'].apply(lambda x: f"{x:_.2f}".replace('.', ',').replace('_', '.'))
     st.dataframe(df_para_exibicao, use_container_width=True)
 
-    # --- Totais ---
-    total_taxa = df_merged['taxa'].sum() # A soma é feita no dataframe original (numérico)
-    
-    # <<< CORREÇÃO 2: FORMATANDO O TOTAL NO st.metric >>>
+    total_taxa = df_merged['taxa'].sum()
     total_formatado = f"R$ {total_taxa:_.2f}".replace('.', ',').replace('_', '.')
     st.metric("💰 Total Geral de Taxas", total_formatado)
 
-    # --- Botão para download ---
-    # O download usará o dataframe formatado para que o CSV também tenha o formato brasileiro
     csv = df_para_exibicao.to_csv(index=False, sep=';', encoding='utf-8-sig')
-    st.download_button(
-        label="⬇️ Baixar CSV",
-        data=csv,
-        file_name='taxa_rede.csv',
-        mime='text/csv'
-    )
+    st.download_button("⬇️ Baixar CSV", data=csv, file_name='taxa_rede.csv', mime='text/csv')
 
 else:
     st.info("⚠️ Envie os dois arquivos acima para processar os dados.")
