@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import warnings
 from datetime import datetime
-import re # <<< Importante adicionar esta biblioteca para a limpeza dos nomes
+import re
 
 warnings.filterwarnings('ignore')
 
-# --- FUNÇÃO DE LIMPEZA DE VALORES ---
+# --- FUNÇÃO DE LIMPEZA DE VALORES (sem alterações) ---
 def limpar_e_converter_valor(valor):
     if isinstance(valor, (int, float)):
         return float(valor)
@@ -51,10 +51,15 @@ if uploaded_dim and uploaded_dados:
     dfato_rede.columns = dfato_rede.iloc[0]
     dfato_rede = dfato_rede[1:].reset_index(drop=True)
 
-    if 'taxa' in dfato_rede.columns:
+    # <<< CORREÇÃO 1: VERIFICANDO E APLICANDO NA COLUNA CORRETA >>>
+    # Agora a verificação é feita em 'VlrUnitario'
+    if 'VlrUnitario' in dfato_rede.columns:
+        print("Limpando a coluna 'VlrUnitario'...")
         dfato_rede['VlrUnitario'] = dfato_rede['VlrUnitario'].apply(limpar_e_converter_valor)
 
     df_merged = dfato_rede.merge(dim_centro, on='CNPJ', how='left')
+    
+    # A agregação agora soma a coluna correta
     df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'VlrUnitario': 'sum'}).reset_index()
 
     # Adicionar colunas
@@ -71,6 +76,7 @@ if uploaded_dim and uploaded_dados:
     df_merged['GrupoAprovacao'] = 'PC0012'
     df_merged['CNPJNotaFiscal'] = '08845676000198'
 
+    # Reordenar colunas
     colunas_ordenadas = [
         'CNPJNotaFiscal', 'TipoCompra', 'Agregador', 'CNPJFornecedor', 'CodProduto', 'Quantidade',
         'VlrUnitario', 'PrevisaoEntrega', 'CENTRO DE CUSTO (NOVO)', 'ItemConta',
@@ -81,42 +87,40 @@ if uploaded_dim and uploaded_dados:
     # --- EXIBIÇÃO E DOWNLOAD ---
     st.subheader("📋 Resultado Final")
     
+    # Cria uma cópia para formatar a exibição
     df_para_exibicao = df_merged.copy()
+    # Formata a coluna correta
     df_para_exibicao['VlrUnitario'] = df_para_exibicao['VlrUnitario'].apply(
         lambda x: f"{x:_.2f}".replace('.', ',').replace('_', '.')
     )
     st.dataframe(df_para_exibicao, use_container_width=True)
 
-    total_taxa = df_merged['VlrUnitario'].sum()
-    total_formatado = f"R$ {total_taxa:_.2f}".replace('.', ',').replace('_', '.')
-    st.metric("💰 Total Geral de Taxas", total_formatado)
+    # <<< CORREÇÃO 2: CONSISTÊNCIA NOS NOMES >>>
+    # A soma é feita na coluna correta e a variável tem nome consistente
+    total_vlr_unitario = df_merged['VlrUnitario'].sum()
+    total_formatado = f"R$ {total_vlr_unitario:_.2f}".replace('.', ',').replace('_', '.')
+    st.metric("💰 Total Geral (Vlr. Unitário)", total_formatado)
 
-    # --- CORREÇÃO PARA GERAR XML ---
+    # --- GERAÇÃO DO XML ---
     st.subheader("⬇️ Download")
-
-    # Cria uma cópia do dataframe para não alterar o original
     df_para_xml = df_merged.copy()
-
-    # <<< CORREÇÃO AQUI: Limpa os nomes das colunas para serem compatíveis com XML >>>
-    # Substitui qualquer caractere que não seja letra, número ou underline por um underline
+    
+    # Limpa nomes de colunas para o XML
     df_para_xml.columns = [re.sub(r'[^a-zA-Z0-9_]', '_', col) for col in df_para_xml.columns]
 
-    # 1. Convertemos o DataFrame com nomes de colunas limpos para uma string XML
     xml_string = df_para_xml.to_xml(
         index=False,
-        root_name='PedidoCompras',
-        row_name='Pedido',
+        root_name='PedidosDeCompra', # Nome mais descritivo
+        row_name='Pedido',           # Nome mais descritivo
         encoding='utf-8'
     )
 
-    # 2. Criamos o botão de download para o arquivo XML
     st.download_button(
-        label="Baixar XML",
+        label="Baixar XML de Pedidos",
         data=xml_string,
-        file_name='taxa_rede.xml',
+        file_name='pedidos_de_compra.xml', # Nome de arquivo mais descritivo
         mime='application/xml'
     )
-    # --- FIM DA CORREÇÃO ---
 
 else:
     st.info("⚠️ Envie os dois arquivos acima para processar os dados.")
