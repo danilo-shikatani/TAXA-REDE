@@ -52,10 +52,10 @@ if uploaded_dim and uploaded_dados:
     dfato_rede = dfato_rede[1:].reset_index(drop=True)
 
     if 'taxa' in dfato_rede.columns:
-        dfato_rede['taxa'] = dfato_rede['taxa'].apply(limpar_e_converter_valor)
+        dfato_rede['VlrUnitario'] = dfato_rede['VlrUnitario'].apply(limpar_e_converter_valor)
 
     df_merged = dfato_rede.merge(dim_centro, on='CNPJ', how='left')
-    df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'taxa': 'sum'}).reset_index()
+    df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'VlrUnitario': 'sum'}).reset_index()
 
     # Adicionar colunas
     df_merged['TipoCompra'] = '04'
@@ -73,7 +73,7 @@ if uploaded_dim and uploaded_dados:
 
     colunas_ordenadas = [
         'CNPJNotaFiscal', 'TipoCompra', 'Agregador', 'CNPJFornecedor', 'CodProduto', 'Quantidade',
-        'taxa', 'PrevisaoEntrega', 'CENTRO DE CUSTO (NOVO)', 'ItemConta',
+        'VlrUnitario', 'PrevisaoEntrega', 'CENTRO DE CUSTO (NOVO)', 'ItemConta',
         'ClasseValor', 'Obs', 'VlrFrete', 'GrupoAprovacao'
     ]
     df_merged = df_merged[colunas_ordenadas]
@@ -82,12 +82,12 @@ if uploaded_dim and uploaded_dados:
     st.subheader("📋 Resultado Final")
     
     df_para_exibicao = df_merged.copy()
-    df_para_exibicao['taxa'] = df_para_exibicao['taxa'].apply(
+    df_para_exibicao['VlrUnitario'] = df_para_exibicao['VlrUnitario'].apply(
         lambda x: f"{x:_.2f}".replace('.', ',').replace('_', '.')
     )
     st.dataframe(df_para_exibicao, use_container_width=True)
 
-    total_taxa = df_merged['taxa'].sum()
+    total_taxa = df_merged['VlrUnitario'].sum()
     total_formatado = f"R$ {total_taxa:_.2f}".replace('.', ',').replace('_', '.')
     st.metric("💰 Total Geral de Taxas", total_formatado)
 
