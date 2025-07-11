@@ -69,10 +69,10 @@ if uploaded_dim and uploaded_dados:
     df_merged['Obs'] = obs_input
     df_merged['VlrFrete'] = '0'
     df_merged['GrupoAprovacao'] = 'PC0012'
-    df_merged['CNPJ'] = '08845676000198'
+    df_merged['CNPJNotaFiscal'] = '08845676000198'
 
     colunas_ordenadas = [
-        'CNPJ', 'TipoCompra', 'Agregador', 'CNPJFornecedor', 'CodProduto', 'Quantidade',
+        'CNPJNotaFiscal', 'TipoCompra', 'Agregador', 'CNPJFornecedor', 'CodProduto', 'Quantidade',
         'taxa', 'PrevisaoEntrega', 'CENTRO DE CUSTO (NOVO)', 'ItemConta',
         'ClasseValor', 'Obs', 'VlrFrete', 'GrupoAprovacao'
     ]
@@ -104,8 +104,8 @@ if uploaded_dim and uploaded_dados:
     # 1. Convertemos o DataFrame com nomes de colunas limpos para uma string XML
     xml_string = df_para_xml.to_xml(
         index=False,
-        root_name='registros',
-        row_name='linha',
+        root_name='PedidoCompras',
+        row_name='Pedido',
         encoding='utf-8'
     )
 
