@@ -5,40 +5,23 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
-# --- FUNÇÃO DE LIMPEZA DE VALORES (VERSÃO FINAL E ROBUSTA) ---
+# --- FUNÇÃO DE LIMPEZA DE VALORES ---
 def limpar_e_converter_valor(valor):
-    """
-    Converte um valor para float de forma segura, lidando com formatos
-    numéricos brasileiros (ex: "1.234,56") e americanos (ex: "1234.56").
-    """
-    # Se já for um número (int ou float), apenas retorna como float.
     if isinstance(valor, (int, float)):
         return float(valor)
-    
-    # Se não for um texto, não podemos processar, então retornamos 0.
     if not isinstance(valor, str):
         return 0.0
-    
     s = valor.strip()
     if not s:
         return 0.0
-
-    # Lógica principal: se existe vírgula, tratamos como formato brasileiro.
     if ',' in s:
-        # Remove pontos (milhar) e troca a vírgula (decimal) por ponto.
         s = s.replace('.', '').replace(',', '.')
-    
-    # Se não há vírgula, assumimos que o formato já é '1234.56' ou '1234'.
-    # A tentativa de conversão direta vai funcionar para ambos os casos.
-    
     try:
         return float(s)
     except (ValueError, TypeError):
-        # Se mesmo assim a conversão falhar, retorna 0.
         return 0.0
-# --- FIM DA FUNÇÃO ---
 
-
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Relatório de Taxa Rede", layout="wide")
 st.title("📊 Visualização de Taxa Rede - Pix ")
 
@@ -60,21 +43,20 @@ with col2_upload:
 
 
 if uploaded_dim and uploaded_dados:
+    # --- LEITURA E PROCESSAMENTO ---
     dim_centro = pd.read_excel(uploaded_dim)
     dfato_rede = pd.read_excel(uploaded_dados)
 
     dfato_rede.columns = dfato_rede.iloc[0]
     dfato_rede = dfato_rede[1:].reset_index(drop=True)
 
-    # --- APLICAÇÃO DA NOVA FUNÇÃO DE LIMPEZA ---
     if 'taxa' in dfato_rede.columns:
         dfato_rede['taxa'] = dfato_rede['taxa'].apply(limpar_e_converter_valor)
-    # --- FIM DA APLICAÇÃO ---
 
     df_merged = dfato_rede.merge(dim_centro, on='CNPJ', how='left')
     df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'taxa': 'sum'}).reset_index()
 
-    # Adicionar colunas fixas e as variáveis dos novos campos
+    # Adicionar colunas
     df_merged['TipoCompra'] = '04'
     df_merged['Agregador'] = '001'
     df_merged['CNPJFornecedor'] = '33264655000126'
@@ -95,24 +77,40 @@ if uploaded_dim and uploaded_dados:
     ]
     df_merged = df_merged[colunas_ordenadas]
 
-    # --- EXIBIÇÃO E DOWNLOAD (com formatação brasileira) ---
+    # --- EXIBIÇÃO E DOWNLOAD ---
     st.subheader("📋 Resultado Final")
-    df_para_exibicao = df_merged.copy()
     
-    # Formatação da coluna 'taxa' para o padrão brasileiro
+    # Dataframe para exibição com formatação brasileira
+    df_para_exibicao = df_merged.copy()
     df_para_exibicao['taxa'] = df_para_exibicao['taxa'].apply(
         lambda x: f"{x:_.2f}".replace('.', ',').replace('_', '.')
     )
     st.dataframe(df_para_exibicao, use_container_width=True)
 
-    # Cálculo e formatação do total
+    # Totais
     total_taxa = df_merged['taxa'].sum()
     total_formatado = f"R$ {total_taxa:_.2f}".replace('.', ',').replace('_', '.')
     st.metric("💰 Total Geral de Taxas", total_formatado)
 
-    # Botão de download
-    csv = df_para_exibicao.to_csv(index=False, sep=';', encoding='utf-8-sig')
-    st.download_button("⬇️ Baixar CSV", data=csv, file_name='taxa_rede.csv', mime='text/csv')
+    # --- CORREÇÃO PARA GERAR XML ---
+    st.subheader("⬇️ Download")
+
+    # 1. Convertemos o DataFrame com os dados NUMÉRICOS para uma string XML
+    xml_string = df_merged.to_xml(
+        index=False,
+        root_name='registros', # Nome do elemento raiz do XML
+        row_name='linha',      # Nome para cada linha de dados
+        encoding='utf-8'       # Codificação do arquivo
+    )
+
+    # 2. Criamos o botão de download para o arquivo XML
+    st.download_button(
+        label="Baixar XML",
+        data=xml_string,
+        file_name='taxa_rede.xml',    # Nome do arquivo .xml
+        mime='application/xml'        # Tipo de arquivo para XML
+    )
+    # --- FIM DA CORREÇÃO ---
 
 else:
     st.info("⚠️ Envie os dois arquivos acima para processar os dados.")
