@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import warnings
 from datetime import datetime
+import re # <<< Importante adicionar esta biblioteca para a limpeza dos nomes
 
 warnings.filterwarnings('ignore')
 
@@ -80,14 +81,12 @@ if uploaded_dim and uploaded_dados:
     # --- EXIBIÇÃO E DOWNLOAD ---
     st.subheader("📋 Resultado Final")
     
-    # Dataframe para exibição com formatação brasileira
     df_para_exibicao = df_merged.copy()
     df_para_exibicao['taxa'] = df_para_exibicao['taxa'].apply(
         lambda x: f"{x:_.2f}".replace('.', ',').replace('_', '.')
     )
     st.dataframe(df_para_exibicao, use_container_width=True)
 
-    # Totais
     total_taxa = df_merged['taxa'].sum()
     total_formatado = f"R$ {total_taxa:_.2f}".replace('.', ',').replace('_', '.')
     st.metric("💰 Total Geral de Taxas", total_formatado)
@@ -95,20 +94,27 @@ if uploaded_dim and uploaded_dados:
     # --- CORREÇÃO PARA GERAR XML ---
     st.subheader("⬇️ Download")
 
-    # 1. Convertemos o DataFrame com os dados NUMÉRICOS para uma string XML
-    xml_string = df_merged.to_xml(
+    # Cria uma cópia do dataframe para não alterar o original
+    df_para_xml = df_merged.copy()
+
+    # <<< CORREÇÃO AQUI: Limpa os nomes das colunas para serem compatíveis com XML >>>
+    # Substitui qualquer caractere que não seja letra, número ou underline por um underline
+    df_para_xml.columns = [re.sub(r'[^a-zA-Z0-9_]', '_', col) for col in df_para_xml.columns]
+
+    # 1. Convertemos o DataFrame com nomes de colunas limpos para uma string XML
+    xml_string = df_para_xml.to_xml(
         index=False,
-        root_name='registros', # Nome do elemento raiz do XML
-        row_name='linha',      # Nome para cada linha de dados
-        encoding='utf-8'       # Codificação do arquivo
+        root_name='registros',
+        row_name='linha',
+        encoding='utf-8'
     )
 
     # 2. Criamos o botão de download para o arquivo XML
     st.download_button(
         label="Baixar XML",
         data=xml_string,
-        file_name='taxa_rede.xml',    # Nome do arquivo .xml
-        mime='application/xml'        # Tipo de arquivo para XML
+        file_name='taxa_rede.xml',
+        mime='application/xml'
     )
     # --- FIM DA CORREÇÃO ---
 
