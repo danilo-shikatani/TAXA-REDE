@@ -6,7 +6,7 @@ import re
 
 warnings.filterwarnings('ignore')
 
-# --- FUNÇÃO DE LIMPEZA DE VALORES (sem alterações) ---
+# --- FUNÇÃO DE LIMPEZA DE VALORES ---
 def limpar_e_converter_valor(valor):
     if isinstance(valor, (int, float)):
         return float(valor)
@@ -51,15 +51,25 @@ if uploaded_dim and uploaded_dados:
     dfato_rede.columns = dfato_rede.iloc[0]
     dfato_rede = dfato_rede[1:].reset_index(drop=True)
 
-    if 'VlrUnitario' in dfato_rede.columns:
-        dfato_rede['VlrUnitario'] = dfato_rede['VlrUnitario'].apply(limpar_e_converter_valor)
+    # --- CORREÇÃO 1: PROCESSANDO A COLUNA 'taxa' DO ARQUIVO ORIGINAL ---
+    # Verifica se a coluna de origem 'taxa' existe
+    if 'taxa' in dfato_rede.columns:
+        print("Limpando a coluna 'taxa'...")
+        dfato_rede['taxa'] = dfato_rede['taxa'].apply(limpar_e_converter_valor)
+    else:
+        st.error("ERRO: A coluna 'taxa' não foi encontrada no 'Relatorio REDE'. Verifique o arquivo.")
+        st.stop() # Para a execução se a coluna de valor não for encontrada
 
     df_merged = dfato_rede.merge(dim_centro, on='CNPJ', how='left')
     
-    df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'VlrUnitario': 'sum'}).reset_index()
+    # A agregação soma a coluna 'taxa'
+    df_merged = df_merged.groupby(['CENTRO DE CUSTO (NOVO)', 'Estabelecimento']).agg({'taxa': 'sum'}).reset_index()
 
-    # <<< ALTERAÇÃO 1: RENOMEANDO A COLUNA >>>
-    df_merged.rename(columns={'CENTRO DE CUSTO (NOVO)': 'CodCentroCustos'}, inplace=True)
+    # --- CORREÇÃO 2: RENOMEANDO AS COLUNAS PARA O FORMATO FINAL ---
+    df_merged.rename(columns={
+        'taxa': 'VlrUnitario',
+        'CENTRO DE CUSTO (NOVO)': 'CodCentroCustos'
+    }, inplace=True)
 
     # Adicionar colunas
     df_merged['TipoCompra'] = '04'
@@ -75,10 +85,10 @@ if uploaded_dim and uploaded_dados:
     df_merged['GrupoAprovacao'] = 'PC0012'
     df_merged['CNPJNotaFiscal'] = '08845676000198'
 
-    # Reordenar colunas, agora com o novo nome 'CodCentroCustos'
+    # Reordenar colunas, agora com os nomes finais
     colunas_ordenadas = [
         'CNPJNotaFiscal', 'TipoCompra', 'Agregador', 'CNPJFornecedor', 'CodProduto', 'Quantidade',
-        'VlrUnitario', 'PrevisaoEntrega', 'CodCentroCustos', 'ItemConta', # <<< Nome da coluna atualizado aqui
+        'VlrUnitario', 'PrevisaoEntrega', 'CodCentroCustos', 'ItemConta',
         'ClasseValor', 'Obs', 'VlrFrete', 'GrupoAprovacao'
     ]
     df_merged = df_merged[colunas_ordenadas]
@@ -96,37 +106,23 @@ if uploaded_dim and uploaded_dados:
     total_formatado = f"R$ {total_vlr_unitario:_.2f}".replace('.', ',').replace('_', '.')
     st.metric("💰 Total Geral (Vlr. Unitário)", total_formatado)
 
-    # <<< ALTERAÇÃO 2: OPÇÕES DE DOWNLOAD XML E CSV >>>
+    # --- OPÇÕES DE DOWNLOAD ---
     st.subheader("⬇️ Download")
     col_download1, col_download2 = st.columns(2)
 
     with col_download1:
-        # --- GERAÇÃO DO XML ---
+        # GERAÇÃO DO XML
         df_para_xml = df_merged.copy()
         df_para_xml.columns = [re.sub(r'[^a-zA-Z0-9_]', '_', col) for col in df_para_xml.columns]
         xml_string = df_para_xml.to_xml(
-            index=False,
-            root_name='PedidosDeCompra',
-            row_name='Pedido',
-            encoding='utf-8'
+            index=False, root_name='PedidosDeCompra', row_name='Pedido', encoding='utf-8'
         )
-        st.download_button(
-            label="Baixar XML de Pedidos",
-            data=xml_string,
-            file_name='pedidos_de_compra.xml',
-            mime='application/xml'
-        )
+        st.download_button("Baixar XML de Pedidos", xml_string, 'pedidos_de_compra.xml', 'application/xml')
 
     with col_download2:
-        # --- GERAÇÃO DO CSV ---
-        # Usamos o df_para_exibicao para manter a formatação de número brasileira
+        # GERAÇÃO DO CSV
         csv = df_para_exibicao.to_csv(index=False, sep=';', encoding='utf-8-sig')
-        st.download_button(
-            label="Baixar CSV de Pedidos",
-            data=csv,
-            file_name='pedidos_de_compra.csv',
-            mime='text/csv'
-        )
+        st.download_button("Baixar CSV de Pedidos", csv, 'pedidos_de_compra.csv', 'text/csv')
 
 else:
     st.info("⚠️ Envie os dois arquivos acima para processar os dados.")
